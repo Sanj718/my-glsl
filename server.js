@@ -73,7 +73,7 @@ http.createServer((req, res) => {
     return;
   }
 
-  const url      = req.url === '/' ? '/portfolio.html' : req.url;
+  const url      = req.url === '/' ? '/index.html' : req.url;
   const filePath = resolve(url);
   const ext      = path.extname(filePath);
 
