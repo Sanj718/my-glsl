@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GLSL / Dev</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #f0ebe0;
+      --paper:   #ece6d9;
+      --border:  #b8a98e;
+      --border2: #d4c8b4;
+      --text:    #1c1409;
+      --muted:   #7a6a50;
+      --green:   #1e5c28;
+      --mono:    'Courier New', Courier, monospace;
+    }
+
+    body {
+      background: var(--bg);
+      background-image:
+        linear-gradient(var(--border2) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border2) 1px, transparent 1px);
+      background-size: 28px 28px;
+      font-family: var(--mono);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: var(--bg);
+      border-bottom: 2px solid var(--border);
+      padding: 0.7rem 1.4rem;
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+    }
+    .topbar-title {
+      font-size: 1rem;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+    .topbar-title::before { content: '> '; color: var(--muted); }
+    .topbar-tag {
+      font-size: 0.62rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+    }
+    .topbar-nav {
+      margin-left: auto;
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border-bottom: 1px dashed var(--border);
+      transition: color .1s, border-color .1s;
+    }
+    .topbar-nav:hover { color: var(--green); border-color: var(--green); }
+
+    /* ── Manifest hint ── */
+    .hint {
+      padding: 0.6rem 1.4rem;
+      font-size: 0.62rem;
+      letter-spacing: 1px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border2);
+      background: var(--paper);
+    }
+    .hint code {
+      color: var(--green);
+      background: #dff0df;
+      padding: 0 4px;
+    }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+      border-left: 1px solid var(--border2);
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--paper);
+      border-right: 1px solid var(--border2);
+      border-bottom: 1px solid var(--border2);
+    }
+
+    .card-canvas-wrap {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: #0a0a06;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .card-canvas-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 2px,
+        rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 3px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+    .card canvas { width: 100% !important; height: 100% !important; display: block; }
+
+    .card-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.9rem;
+      gap: 1rem;
+    }
+    .card-filename {
+      font-size: 0.72rem;
+      color: var(--green);
+      letter-spacing: 0.5px;
+    }
+    .card-filename::before { content: './shaders/'; color: var(--muted); }
+
+    .card-info {
+      font-size: 0.62rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      gap: 1rem;
+    }
+    .card-info span { color: var(--text); }
+
+    /* ── Error state ── */
+    .card-error {
+      background: #fff0f0;
+      border-top: 2px solid #8b1a1a;
+      color: #8b1a1a;
+      font-size: 0.68rem;
+      padding: 0.5rem 0.9rem;
+      white-space: pre-wrap;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+
+    /* ── Fullscreen modal ── */
+    .fs-backdrop {
+      position: fixed;
+      inset: 0;
+      background: #0a0a06;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+    }
+    .fs-backdrop.open { display: flex; }
+
+    #fs-canvas { display: block; flex: 1; width: 100%; }
+
+    .fs-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.55rem 0.9rem;
+      background: rgba(10,10,6,.8);
+      border-bottom: 1px solid #2a3a1a;
+      z-index: 10;
+      font-size: 0.65rem;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+    .fs-name { color: #8fbc6a; }
+    .fs-close {
+      color: #5a7a4a;
+      cursor: pointer;
+      border: 1px solid #3a4a2a;
+      padding: 2px 8px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      background: none;
+      transition: color .1s;
+    }
+    .fs-close:hover { color: #8fbc6a; }
+
+    .fs-scanlines {
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 2px,
+        rgba(0,0,0,.07) 2px, rgba(0,0,0,.07) 3px
+      );
+      pointer-events: none;
+      z-index: 9;
+    }
+
+    /* ── Empty state ── */
+    .empty {
+      padding: 3rem 1.4rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 2;
+      border-right: 1px solid var(--border2);
+      border-bottom: 1px solid var(--border2);
+    }
+    .empty code { color: var(--green); }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">Dev</span>
+  <span class="topbar-tag">WIP</span>
+  <a class="topbar-nav" href="../">Portfolio &rarr;</a>
+</div>
+
+<div class="hint">
+  Edit <code>dev/manifest.json</code> to add shaders you're working on.
+</div>
+
+<div class="grid" id="grid"></div>
+
+<!-- Fullscreen overlay -->
+<div class="fs-backdrop" id="fs-backdrop">
+  <div class="fs-bar">
+    <span class="fs-name" id="fs-name"></span>
+    <button class="fs-close" id="fs-close">[esc]</button>
+  </div>
+  <div class="fs-scanlines"></div>
+  <canvas id="fs-canvas"></canvas>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+const VERT = `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = vec4(position, 1.0);
+}`;
+
+function buildMaterial(frag) {
+  return new THREE.ShaderMaterial({
+    vertexShader: VERT, fragmentShader: frag,
+    uniforms: { uTime: { value: 0 }, uResolution: { value: new THREE.Vector2(1,1) } },
+  });
+}
+
+function createRenderer(canvas, { antialias = true, pixelRatio } = {}) {
+  const r = new THREE.WebGLRenderer({ canvas, antialias, powerPreference: 'low-power' });
+  r.setPixelRatio(pixelRatio ?? Math.min(devicePixelRatio, 1.5));
+  const scene  = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  const geo    = new THREE.PlaneGeometry(2,2);
+  return { renderer: r, scene, camera, geo };
+}
+
+// ── Load manifest + shaders ──────────────────────────────
+const grid = document.getElementById('grid');
+let   manifest;
+
+try {
+  manifest = await fetch('./manifest.json').then(r => r.json());
+} catch {
+  grid.innerHTML = `<div class="empty">
+    Could not load <code>dev/manifest.json</code>.<br>
+    Create it with an array of filenames:<br><br>
+    <code>["1-my-shader.glsl"]</code>
+  </div>`;
+}
+
+if (!manifest?.length) {
+  grid.innerHTML = `<div class="empty">
+    <code>dev/manifest.json</code> is empty.<br>
+    Add a filename to get started:<br><br>
+    <code>["1-my-shader.glsl"]</code>
+  </div>`;
+}
+
+// ── Per-card renderers ───────────────────────────────────
+const cards    = [];
+const visible  = new Set();
+
+const observer = new IntersectionObserver(
+  entries => entries.forEach(e => e.isIntersecting ? visible.add(e.target) : visible.delete(e.target)),
+  { threshold: 0.1 }
+);
+
+for (const filename of (manifest ?? [])) {
+  let frag;
+  try {
+    frag = await fetch(`../shaders/${filename}`).then(r => {
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+      return r.text();
+    });
+  } catch (err) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-bar"><span class="card-filename">${filename}</span></div>
+      <div class="card-error">Error: ${err.message}</div>`;
+    grid.appendChild(card);
+    continue;
+  }
+
+  // ── Build card ──
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const wrap   = document.createElement('div');
+  wrap.className = 'card-canvas-wrap';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  card.appendChild(wrap);
+
+  const bar = document.createElement('div');
+  bar.className = 'card-bar';
+  bar.innerHTML = `
+    <span class="card-filename">${filename}</span>
+    <div class="card-info">
+      time <span id="t-${filename}">0.00</span>s &nbsp;
+      fps <span id="f-${filename}">—</span>
+    </div>`;
+  card.appendChild(bar);
+
+  grid.appendChild(card);
+
+  // ── Renderer ──
+  const { renderer, scene, camera, geo } = createRenderer(canvas);
+  let mat;
+  try {
+    mat = buildMaterial(frag);
+    scene.add(new THREE.Mesh(geo, mat));
+  } catch (e) {
+    const errDiv = document.createElement('div');
+    errDiv.className = 'card-error';
+    errDiv.textContent = e.message;
+    card.appendChild(errDiv);
+    continue;
+  }
+
+  const tEl = document.getElementById(`t-${filename}`);
+  const fEl = document.getElementById(`f-${filename}`);
+
+  function resize() {
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    renderer.setSize(w, h, false);
+    mat.uniforms.uResolution.value.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
+  }
+
+  cards.push({ renderer, scene, camera, mat, resize, card, filename, fEl, tEl, frag });
+  observer.observe(card);
+  window.addEventListener('resize', resize);
+
+  // ── Click → fullscreen ──
+  wrap.addEventListener('click', () => openFs(filename, frag));
+}
+
+requestAnimationFrame(() => cards.forEach(c => c.resize()));
+
+// ── Animate ─────────────────────────────────────────────
+const t0 = performance.now();
+let frames = {};
+
+(function loop() {
+  requestAnimationFrame(loop);
+  const t = (performance.now() - t0) / 1000;
+  cards.forEach(({ renderer, scene, camera, mat, card, tEl, fEl, filename }) => {
+    if (!visible.has(card)) return;
+    frames[filename] = (frames[filename] ?? 0) + 1;
+    mat.uniforms.uTime.value = t;
+    tEl.textContent = t.toFixed(2);
+    renderer.render(scene, camera);
+  });
+})();
+
+setInterval(() => {
+  cards.forEach(({ filename, fEl }) => {
+    fEl.textContent = frames[filename] ?? 0;
+    frames[filename] = 0;
+  });
+}, 1000);
+
+// ── Fullscreen ───────────────────────────────────────────
+const fsBackdrop = document.getElementById('fs-backdrop');
+const fsCanvas   = document.getElementById('fs-canvas');
+const fsName     = document.getElementById('fs-name');
+const fsClose    = document.getElementById('fs-close');
+
+let fsRenderer = null, fsMat = null, fsActive = false;
+
+function openFs(filename, frag) {
+  fsName.textContent = filename;
+  if (fsRenderer) { fsRenderer.dispose(); fsRenderer = null; }
+
+  const { renderer, scene, camera, geo } = createRenderer(fsCanvas, {
+    antialias: true, pixelRatio: devicePixelRatio
+  });
+  fsRenderer = renderer;
+  fsMat = buildMaterial(frag);
+  scene.add(new THREE.Mesh(geo, fsMat));
+  fsRenderer._scene  = scene;
+  fsRenderer._camera = camera;
+
+  function resize() {
+    fsRenderer.setSize(window.innerWidth, window.innerHeight, false);
+    fsMat.uniforms.uResolution.value.set(
+      window.innerWidth  * devicePixelRatio,
+      window.innerHeight * devicePixelRatio
+    );
+  }
+  resize();
+  window._resizeFs = resize;
+
+  fsActive = true;
+  fsBackdrop.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFs() {
+  fsActive = false;
+  fsBackdrop.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+fsClose.addEventListener('click', closeFs);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFs(); });
+window.addEventListener('resize', () => window._resizeFs?.());
+
+// fs animate
+const fsClock = new THREE.Clock();
+(function fsLoop() {
+  requestAnimationFrame(fsLoop);
+  if (!fsActive || !fsRenderer) return;
+  fsMat.uniforms.uTime.value = fsClock.getElapsedTime();
+  fsRenderer.render(fsRenderer._scene, fsRenderer._camera);
+})();
+</script>
+</body>
+</html>

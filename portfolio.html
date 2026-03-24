@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GLSL Portfolio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #f0ebe0;
+      --paper:   #ece6d9;
+      --border:  #b8a98e;
+      --border2: #d4c8b4;
+      --text:    #1c1409;
+      --muted:   #7a6a50;
+      --green:   #1e5c28;
+      --mono:    'Courier New', Courier, monospace;
+    }
+
+    body {
+      background: var(--bg);
+      background-image:
+        linear-gradient(var(--border2) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border2) 1px, transparent 1px);
+      background-size: 28px 28px;
+      color: var(--text);
+      font-family: var(--mono);
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: var(--bg);
+      border-bottom: 2px solid var(--border);
+      padding: 0.7rem 1.4rem;
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+    }
+    .topbar-title {
+      font-size: 1rem;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+    .topbar-title::before { content: '> '; color: var(--muted); }
+    .topbar-tag {
+      font-size: 0.62rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 2px 7px;
+    }
+
+    /* ── Stats ── */
+    .stats {
+      display: flex;
+      border-bottom: 2px solid var(--border);
+    }
+    .stat {
+      flex: 1;
+      padding: 0.9rem 1.4rem;
+      border-right: 1px solid var(--border2);
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+    }
+    .stat:last-child { border-right: none; }
+    .stat-num {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--green);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.62rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      border-left: 1px solid var(--border2);
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--paper);
+      border-right: 1px solid var(--border2);
+      border-bottom: 1px solid var(--border2);
+    }
+
+    .card-canvas-wrap {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: #0a0a06;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-canvas-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 2px,
+        rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 3px
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+    .card canvas { width: 100% !important; height: 100% !important; display: block; }
+
+    .card-index {
+      position: absolute;
+      top: 0.5rem;
+      left: 0.5rem;
+      background: rgba(10,10,6,.7);
+      color: #5a7a4a;
+      font-size: 0.6rem;
+      letter-spacing: 1px;
+      padding: 2px 6px;
+      z-index: 2;
+    }
+
+    .card-body { padding: 0.85rem 1rem; }
+    .card-name {
+      font-size: 0.85rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 2px solid var(--border);
+      background: var(--paper);
+      padding: 0.8rem 1.4rem;
+      font-size: 0.62rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    footer::before { content: '/* eof */  '; color: var(--border); }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">Shader Portfolio</span>
+  <span class="topbar-tag">WebGL / GLSL</span>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <span class="stat-num" id="stat-count">—</span>
+    <span class="stat-label">Shaders</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">60</span>
+    <span class="stat-label">FPS target</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">2</span>
+    <span class="stat-label">Uniforms</span>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<footer>uTime &amp; uResolution auto-injected</footer>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { SHADERS } from './loader.js';
+
+document.getElementById('stat-count').textContent = SHADERS.length;
+
+function createRenderer(canvas) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  const scene    = new THREE.Scene();
+  const camera   = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  return { renderer, scene, camera };
+}
+
+function buildMaterial(vert, frag) {
+  return new THREE.ShaderMaterial({
+    vertexShader: vert, fragmentShader: frag,
+    uniforms: { uTime: { value: 0 }, uResolution: { value: new THREE.Vector2(1,1) } },
+  });
+}
+
+const visibleCards = new Set();
+new IntersectionObserver(entries => {
+  entries.forEach(e => e.isIntersecting ? visibleCards.add(e.target) : visibleCards.delete(e.target));
+}, { threshold: 0.1 }).observe(document.getElementById('grid'));
+
+const grid      = document.getElementById('grid');
+const renderers = [];
+
+SHADERS.forEach((shader, idx) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'card-canvas-wrap';
+
+  const badge = document.createElement('div');
+  badge.className   = 'card-index';
+  badge.textContent = String(idx + 1).padStart(2, '0');
+
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(badge);
+  wrap.appendChild(canvas);
+  card.appendChild(wrap);
+
+  const body = document.createElement('div');
+  body.className = 'card-body';
+  body.innerHTML = `<div class="card-name">${shader.name}</div>`;
+  card.appendChild(body);
+
+  grid.appendChild(card);
+
+  const { renderer, scene, camera } = createRenderer(canvas);
+  const mat = buildMaterial(shader.vert, shader.frag);
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat));
+
+  function resize() {
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    renderer.setSize(w, h, false);
+    mat.uniforms.uResolution.value.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
+  }
+
+  renderers.push({ renderer, scene, camera, mat, resize, card });
+
+  // observe the card itself for visibility
+  new IntersectionObserver(([e]) => {
+    e.isIntersecting ? visibleCards.add(card) : visibleCards.delete(card);
+  }, { threshold: 0.1 }).observe(card);
+});
+
+window.addEventListener('resize', () => renderers.forEach(r => r.resize()));
+requestAnimationFrame(() => renderers.forEach(r => r.resize()));
+
+const t0 = performance.now();
+(function animate() {
+  requestAnimationFrame(animate);
+  const t = (performance.now() - t0) / 1000;
+  renderers.forEach(({ renderer, scene, camera, mat, card }) => {
+    if (!visibleCards.has(card)) return;
+    mat.uniforms.uTime.value = t;
+    renderer.render(scene, camera);
+  });
+})();
+</script>
+</body>
+</html>
