@@ -62,6 +62,7 @@
       flex: 1;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      align-content: start;
       border-left: 1px solid var(--border2);
     }
 
@@ -78,6 +79,7 @@
       background: #0a0a06;
       overflow: hidden;
       border-bottom: 1px solid var(--border);
+      cursor: pointer;
     }
     .card-canvas-wrap::after {
       content: '';
@@ -113,6 +115,59 @@
       letter-spacing: 1px;
     }
 
+    /* ── Fullscreen modal ── */
+    .fs-backdrop {
+      position: fixed;
+      inset: 0;
+      background: #0a0a06;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+    }
+    .fs-backdrop.open { display: flex; }
+
+    #fs-canvas { display: block; flex: 1; width: 100%; }
+
+    .fs-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.55rem 0.9rem;
+      background: rgba(10,10,6,.8);
+      border-bottom: 1px solid #2a3a1a;
+      z-index: 10;
+      font-size: 0.65rem;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      font-family: var(--mono);
+    }
+    .fs-name { color: #8fbc6a; }
+    .fs-close {
+      color: #5a7a4a;
+      cursor: pointer;
+      border: 1px solid #3a4a2a;
+      padding: 2px 8px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      background: none;
+      transition: color .1s;
+    }
+    .fs-close:hover { color: #8fbc6a; }
+
+    .fs-scanlines {
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 2px,
+        rgba(0,0,0,.07) 2px, rgba(0,0,0,.07) 3px
+      );
+      pointer-events: none;
+      z-index: 9;
+    }
+
     /* ── Footer ── */
     footer {
       border-top: 2px solid var(--border);
@@ -134,6 +189,16 @@
 </div>
 
 <div class="grid" id="grid"></div>
+
+<!-- Fullscreen modal -->
+<div class="fs-backdrop" id="fs-backdrop">
+  <div class="fs-bar">
+    <span class="fs-name" id="fs-name"></span>
+    <button class="fs-close" id="fs-close">[esc]</button>
+  </div>
+  <div class="fs-scanlines"></div>
+  <canvas id="fs-canvas"></canvas>
+</div>
 
 <footer>uTime &amp; uResolution auto-injected</footer>
 
@@ -207,6 +272,9 @@ SHADERS.forEach((shader, idx) => {
   new IntersectionObserver(([e]) => {
     e.isIntersecting ? visibleCards.add(card) : visibleCards.delete(card);
   }, { threshold: 0.1 }).observe(card);
+
+  // click canvas to open fullscreen
+  wrap.addEventListener('click', () => openFs(shader));
 });
 
 window.addEventListener('resize', () => renderers.forEach(r => r.resize()));
@@ -221,6 +289,59 @@ const t0 = performance.now();
     mat.uniforms.uTime.value = t;
     renderer.render(scene, camera);
   });
+})();
+
+// ── Fullscreen ───────────────────────────────────────────
+const fsBackdrop = document.getElementById('fs-backdrop');
+const fsCanvas   = document.getElementById('fs-canvas');
+const fsName     = document.getElementById('fs-name');
+const fsClose    = document.getElementById('fs-close');
+
+let fsRenderer = null, fsMat = null, fsActive = false;
+
+function openFs(shader) {
+  fsName.textContent = shader.name;
+  if (fsRenderer) { fsRenderer.dispose(); fsRenderer = null; }
+
+  const { renderer, scene, camera } = createRenderer(fsCanvas);
+  fsRenderer = renderer;
+  fsMat = buildMaterial(shader.vert, shader.frag);
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), fsMat));
+  fsRenderer._scene  = scene;
+  fsRenderer._camera = camera;
+
+  function resize() {
+    fsRenderer.setSize(window.innerWidth, window.innerHeight, false);
+    fsMat.uniforms.uResolution.value.set(
+      window.innerWidth  * devicePixelRatio,
+      window.innerHeight * devicePixelRatio
+    );
+  }
+  resize();
+  window._resizeFs = resize;
+
+  fsActive = true;
+  fsBackdrop.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFs() {
+  fsActive = false;
+  fsBackdrop.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+fsClose.addEventListener('click', closeFs);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFs(); });
+window.addEventListener('resize', () => window._resizeFs?.());
+
+// fs animate loop
+const fsClock = { start: performance.now() };
+(function fsLoop() {
+  requestAnimationFrame(fsLoop);
+  if (!fsActive || !fsRenderer) return;
+  fsMat.uniforms.uTime.value = (performance.now() - fsClock.start) / 1000;
+  fsRenderer.render(fsRenderer._scene, fsRenderer._camera);
 })();
 </script>
 </body>
