@@ -55,33 +55,6 @@
       padding: 2px 7px;
     }
 
-    /* ── Stats ── */
-    .stats {
-      display: flex;
-      border-bottom: 2px solid var(--border);
-    }
-    .stat {
-      flex: 1;
-      padding: 0.9rem 1.4rem;
-      border-right: 1px solid var(--border2);
-      display: flex;
-      align-items: baseline;
-      gap: 0.6rem;
-    }
-    .stat:last-child { border-right: none; }
-    .stat-num {
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: var(--green);
-      line-height: 1;
-    }
-    .stat-label {
-      font-size: 0.62rem;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
     /* ── Grid ── */
     .grid {
       display: grid;
@@ -157,21 +130,6 @@
   <span class="topbar-tag">I Bend Light</span>
 </div>
 
-<!-- <div class="stats">
-  <div class="stat">
-    <span class="stat-num" id="stat-count">—</span>
-    <span class="stat-label">Shaders</span>
-  </div>
-  <div class="stat">
-    <span class="stat-num">60</span>
-    <span class="stat-label">FPS target</span>
-  </div>
-  <div class="stat">
-    <span class="stat-num">2</span>
-    <span class="stat-label">Uniforms</span>
-  </div>
-</div> -->
-
 <div class="grid" id="grid"></div>
 
 <footer>uTime &amp; uResolution auto-injected</footer>
@@ -183,8 +141,6 @@
 <script type="module">
 import * as THREE from 'three';
 import { SHADERS } from './loader.js';
-
-document.getElementById('stat-count').textContent = SHADERS.length;
 
 function createRenderer(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
