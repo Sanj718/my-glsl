@@ -305,7 +305,7 @@ const observer = new IntersectionObserver(
 for (const filename of (manifest ?? [])) {
   let frag;
   try {
-    frag = await fetch(`../shaders/${filename}`).then(r => {
+    frag = await fetch(`./shaders/${filename}`).then(r => {
       if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
       return r.text();
     });

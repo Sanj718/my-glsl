@@ -34,14 +34,16 @@ if (DEV) {
     notifyReload();
   });
 
-  // watch dev/manifest.json → reload only
-  fs.watch(path.join(ROOT, 'dev'), (_, filename) => {
-    if (filename !== 'manifest.json') return;
-    console.log('[dev] dev/manifest.json changed — reloading...');
-    notifyReload();
+  // watch dev/ → reload on manifest.json or any .glsl change
+  fs.watch(path.join(ROOT, 'dev'), { recursive: true }, (_, filename) => {
+    if (!filename) return;
+    if (filename === 'manifest.json' || filename.endsWith('.glsl')) {
+      console.log(`[dev] dev/${filename} changed — reloading...`);
+      notifyReload();
+    }
   });
 
-  console.log('[dev] watching shaders/ and dev/manifest.json');
+  console.log('[dev] watching shaders/ and dev/');
 }
 
 // ── Resolve file path, serving index.html for directories ──
@@ -76,6 +78,16 @@ http.createServer((req, res) => {
   const url      = req.url === '/' ? '/index.html' : req.url;
   const filePath = resolve(url);
   const ext      = path.extname(filePath);
+
+  // redirect bare directory paths to trailing-slash so relative URLs resolve correctly
+  const stripped = url.split('?')[0];
+  try {
+    if (!stripped.endsWith('/') && fs.statSync(path.join(ROOT, stripped)).isDirectory()) {
+      res.writeHead(301, { Location: stripped + '/' });
+      res.end();
+      return;
+    }
+  } catch {}
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
